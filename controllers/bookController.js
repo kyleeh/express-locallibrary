@@ -163,14 +163,55 @@ exports.book_create_post = [
 ];
 
 // Display book delete form on GET.
-exports.book_delete_get = function(req, res) {
-    res.send('NOT IMPLEMENTED: Book delete GET');
+exports.book_delete_get = function(req, res, next) {
+
+    async.parallel({
+        book: function(callback) {
+            book.findById(req.params.id).exec(callback)
+        },
+        bookinstance_book: function(callback) {
+          Book.find({ 'book': req.params.id }).exec(callback)
+        },
+    }, function(err, results) {
+        if (err) { return next(err); }
+        if (results.book==null) { // No results.
+            res.redirect('/catalog/book');
+        }
+        // Successful, so render.
+        res.render('book_delete', { title: 'Delete Book', book: results.book, bookinstance_book: results.bookinstance_book } );
+    });
+
 };
 
-// Handle book delete on POST.
-exports.book_delete_post = function(req, res) {
-    res.send('NOT IMPLEMENTED: Book delete POST');
+// Handle Book delete on POST.
+exports.book_delete_post = function(req, res, next) {
+
+    async.parallel({
+        Book: function(callback) {
+          Book.findById(req.body.authorid).exec(callback)
+        },
+        bookinstance_book: function(callback) {
+          Book.find({ 'book': req.body.authorid }).exec(callback)
+        },
+    }, function(err, results) {
+        if (err) { return next(err); }
+        // Success
+        if (results.bookinstance_book.length > 0) {
+            // BookInstance has books. Render in same way as for GET route.
+            res.render('book_delete', { title: 'Delete Book', book: results.book, bookinstance_book: results.bookinstance_book } );
+            return;
+        }
+        else {
+            // BookInstance has no books. Delete object and redirect to the list of Books.
+            Book.findByIdAndRemove(req.body.authorid, function deleteBook(err) {
+                if (err) { return next(err); }
+                // Success - go to book list
+                res.redirect('/catalog/book')
+            })
+        }
+    });
 };
+
 
 // Display book update form on GET.
 exports.book_update_get = function(req, res, next) {
